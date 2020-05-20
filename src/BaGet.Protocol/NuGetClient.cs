@@ -12,13 +12,14 @@ using NuGet.Versioning;
 namespace BaGet.Protocol
 {
     /// <summary>
-    /// The <see cref="NuGetClient"/> allows you to interact with a NuGet server.
+    /// The client to interact with a NuGet server.
     /// </summary>
     public class NuGetClient
     {
         private readonly IPackageContentClient _contentClient;
         private readonly IPackageMetadataClient _metadataClient;
         private readonly ISearchClient _searchClient;
+        private readonly IAutocompleteClient _autocompleteClient;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="NuGetClient"/> class
@@ -48,6 +49,7 @@ namespace BaGet.Protocol
             _contentClient = clientFactory.CreatePackageContentClient();
             _metadataClient = clientFactory.CreatePackageMetadataClient();
             _searchClient = clientFactory.CreateSearchClient();
+            _autocompleteClient = clientFactory.CreateAutocompleteClient();
         }
 
         /// <summary>
@@ -112,9 +114,9 @@ namespace BaGet.Protocol
         /// <exception cref="PackageNotFoundException">
         ///     The package could not be found.
         /// </exception>
-        public virtual async Task<Stream> GetPackageStreamAsync(string packageId, NuGetVersion packageVersion, CancellationToken cancellationToken = default)
+        public virtual async Task<Stream> DownloadPackageAsync(string packageId, NuGetVersion packageVersion, CancellationToken cancellationToken = default)
         {
-            var stream = await _contentClient.GetPackageContentStreamOrNullAsync(packageId, packageVersion, cancellationToken);
+            var stream = await _contentClient.DownloadPackageOrNullAsync(packageId, packageVersion, cancellationToken);
 
             if (stream == null)
             {
@@ -134,9 +136,12 @@ namespace BaGet.Protocol
         /// <exception cref="PackageNotFoundException">
         ///     The package could not be found.
         /// </exception>
-        public virtual async Task<Stream> GetPackageManifestStreamAsync(string packageId, NuGetVersion packageVersion, CancellationToken cancellationToken = default)
+        public virtual async Task<Stream> DownloadPackageManifestAsync(
+            string packageId,
+            NuGetVersion packageVersion,
+            CancellationToken cancellationToken = default)
         {
-            var stream = await _contentClient.GetPackageManifestStreamOrNullAsync(packageId, packageVersion, cancellationToken);
+            var stream = await _contentClient.DownloadPackageManifestOrNullAsync(packageId, packageVersion, cancellationToken);
 
             if (stream == null)
             {
@@ -170,7 +175,10 @@ namespace BaGet.Protocol
         /// <param name="includeUnlisted">Whether to include unlisted versions.</param>
         /// <param name="cancellationToken">A token to cancel the task.</param>
         /// <returns>The package's versions, or an empty list if the package does not exist.</returns>
-        public virtual async Task<IReadOnlyList<NuGetVersion>> ListPackageVersionsAsync(string packageId, bool includeUnlisted, CancellationToken cancellationToken = default)
+        public virtual async Task<IReadOnlyList<NuGetVersion>> ListPackageVersionsAsync(
+            string packageId,
+            bool includeUnlisted,
+            CancellationToken cancellationToken = default)
         {
             if (!includeUnlisted)
             {
@@ -193,7 +201,9 @@ namespace BaGet.Protocol
         /// <param name="packageId">The package ID.</param>
         /// <param name="cancellationToken">A token to cancel the task.</param>
         /// <returns>The package's metadata, or an empty list if the package does not exist.</returns>
-        public virtual async Task<IReadOnlyList<PackageMetadata>> GetPackageMetadataAsync(string packageId, CancellationToken cancellationToken = default)
+        public virtual async Task<IReadOnlyList<PackageMetadata>> GetPackageMetadataAsync(
+            string packageId,
+            CancellationToken cancellationToken = default)
         {
             var result = new List<PackageMetadata>();
 
@@ -238,7 +248,10 @@ namespace BaGet.Protocol
         /// <exception cref="PackageNotFoundException">
         ///     The package could not be found.
         /// </exception>
-        public virtual async Task<PackageMetadata> GetPackageMetadataAsync(string packageId, NuGetVersion packageVersion, CancellationToken cancellationToken = default)
+        public virtual async Task<PackageMetadata> GetPackageMetadataAsync(
+            string packageId,
+            NuGetVersion packageVersion,
+            CancellationToken cancellationToken = default)
         {
             var registrationIndex = await _metadataClient.GetRegistrationIndexOrNullAsync(packageId, cancellationToken);
 
@@ -304,6 +317,33 @@ namespace BaGet.Protocol
         }
 
         /// <summary>
+        /// Search for packages. Includes prerelease packages.
+        /// </summary>
+        /// <param name="query">
+        /// The search query. If <see langword="null"/>, gets default search results.
+        /// </param>
+        /// <param name="skip">The number of results to skip.</param>
+        /// <param name="take">The number of results to include.</param>
+        /// <param name="cancellationToken">A token to cancel the task.</param>
+        /// <returns>The search results, including prerelease packages.</returns>
+        public virtual async Task<IReadOnlyList<SearchResult>> SearchAsync(
+            string query,
+            int skip,
+            int take,
+            CancellationToken cancellationToken = default)
+        {
+            var response =  await _searchClient.SearchAsync(
+                query,
+                skip,
+                take,
+                includePrerelease: true,
+                includeSemVer2: true,
+                cancellationToken: cancellationToken);
+
+            return response.Data;
+        }
+
+        /// <summary>
         /// Search for packages.
         /// </summary>
         /// <param name="query">
@@ -326,46 +366,21 @@ namespace BaGet.Protocol
         }
 
         /// <summary>
-        /// Search for packages. Includes prerelease packages.
-        /// </summary>
-        /// <param name="query">
-        /// The search query. If <see langword="null"/>, gets default search results.
-        /// </param>
-        /// <param name="skip">The number of results to skip.</param>
-        /// <param name="take">The number of results to include.</param>
-        /// <param name="cancellationToken">A token to cancel the task.</param>
-        /// <returns>The search results, including prerelease packages.</returns>
-        public virtual async Task<IReadOnlyList<SearchResult>> SearchAsync(
-            string query,
-            int skip,
-            int take,
-            CancellationToken cancellationToken = default)
-        {
-            var response =  await _searchClient.SearchAsync(
-                query,
-                skip,
-                take,
-                cancellationToken: cancellationToken);
-
-            return response.Data;
-        }
-
-        /// <summary>
         /// Search for packages.
         /// </summary>
         /// <param name="query">
         /// The search query. If <see langword="null"/>, gets default search results.
         /// </param>
-        /// <param name="includePrerelease">Whether to include prerelease packages.</param>
         /// <param name="skip">The number of results to skip.</param>
         /// <param name="take">The number of results to include.</param>
+        /// <param name="includePrerelease">Whether to include prerelease packages.</param>
         /// <param name="cancellationToken">A token to cancel the task.</param>
         /// <returns>The search results, including prerelease packages.</returns>
         public virtual async Task<IReadOnlyList<SearchResult>> SearchAsync(
             string query,
-            bool includePrerelease,
             int skip,
             int take,
+            bool includePrerelease,
             CancellationToken cancellationToken = default)
         {
             var response = await _searchClient.SearchAsync(
@@ -380,7 +395,7 @@ namespace BaGet.Protocol
         }
 
         /// <summary>
-        /// Search for package IDs.
+        /// Search for package IDs. Includes prerelease packages.
         /// </summary>
         /// <param name="query">
         /// The search query. If <see langword="null"/>, gets default autocomplete results.
@@ -391,13 +406,13 @@ namespace BaGet.Protocol
             string query = null,
             CancellationToken cancellationToken = default)
         {
-            var response = await _searchClient.AutocompleteAsync(query, cancellationToken: cancellationToken);
+            var response = await _autocompleteClient.AutocompleteAsync(query, cancellationToken: cancellationToken);
 
             return response.Data;
         }
 
         /// <summary>
-        /// Search for package IDs.
+        /// Search for package IDs. Includes prerelease packages.
         /// </summary>
         /// <param name="query">
         /// The search query. If <see langword="null"/>, gets default autocomplete results.
@@ -412,11 +427,64 @@ namespace BaGet.Protocol
             int take,
             CancellationToken cancellationToken = default)
         {
-            var response = await _searchClient.AutocompleteAsync(
+            var response = await _autocompleteClient.AutocompleteAsync(
                 query,
-                skip: skip,
-                take: take,
+                skip,
+                take,
+                includePrerelease: true,
+                includeSemVer2: true,
+                cancellationToken);
+
+            return response.Data;
+        }
+
+        /// <summary>
+        /// Search for package IDs.
+        /// </summary>
+        /// <param name="query">
+        /// The search query. If <see langword="null"/>, gets default autocomplete results.
+        /// </param>
+        /// <param name="includePrerelease">Whether to include prerelease packages.</param>
+        /// <param name="cancellationToken">A token to cancel the task.</param>
+        /// <returns>The package IDs that matched the query.</returns>
+        public virtual async Task<IReadOnlyList<string>> AutocompleteAsync(
+            string query,
+            bool includePrerelease,
+            CancellationToken cancellationToken = default)
+        {
+            var response = await _autocompleteClient.AutocompleteAsync(
+                query,
+                includePrerelease: includePrerelease,
                 cancellationToken: cancellationToken);
+
+            return response.Data;
+        }
+
+        /// <summary>
+        /// Search for package IDs.
+        /// </summary>
+        /// <param name="query">
+        /// The search query. If <see langword="null"/>, gets default autocomplete results.
+        /// </param>
+        /// <param name="skip">The number of results to skip.</param>
+        /// <param name="take">The number of results to include.</param>
+        /// <param name="includePrerelease">Whether to include prerelease packages.</param>
+        /// <param name="cancellationToken">A token to cancel the task.</param>
+        /// <returns>The package IDs that matched the query.</returns>
+        public virtual async Task<IReadOnlyList<string>> AutocompleteAsync(
+            string query,
+            int skip,
+            int take,
+            bool includePrerelease,
+            CancellationToken cancellationToken = default)
+        {
+            var response = await _autocompleteClient.AutocompleteAsync(
+                query,
+                skip,
+                take,
+                includePrerelease,
+                includeSemVer2: true,
+                cancellationToken);
 
             return response.Data;
         }

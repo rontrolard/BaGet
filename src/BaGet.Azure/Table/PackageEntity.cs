@@ -22,6 +22,7 @@ namespace BaGet.Azure
         public string Description { get; set; }
         public long Downloads { get; set; }
         public bool HasReadme { get; set; }
+        public bool HasEmbeddedIcon { get; set; }
         public bool IsPrerelease { get; set; }
         public string Language { get; set; }
         public bool Listed { get; set; }
@@ -29,6 +30,7 @@ namespace BaGet.Azure
         public DateTime Published { get; set; }
         public bool RequireLicenseAcceptance { get; set; }
         public int SemVerLevel { get; set; }
+        public string ReleaseNotes { get; set; }
         public string Summary { get; set; }
         public string Title { get; set; }
 

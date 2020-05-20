@@ -2,7 +2,7 @@ import { Icon } from 'office-ui-fabric-react/lib/Icon';
 import * as React from 'react';
 import ReactMarkdown from 'react-markdown';
 import timeago from 'timeago.js';
-import { gt } from 'semver';
+import { coerce, eq, gt, SemVer } from 'semver';
 
 import { config } from '../config';
 import Dependencies from './Dependencies';
@@ -14,6 +14,7 @@ import SourceRepository from './SourceRepository';
 import { Versions, IPackageVersion } from './Versions';
 
 import './DisplayPackage.css';
+import DefaultPackageIcon from "../default-package-icon-256x256.png";
 
 interface IDisplayPackageProps {
   match: {
@@ -26,7 +27,6 @@ interface IDisplayPackageProps {
 
 interface IPackage {
   id: string;
-  latestVersion: string;
   hasReadme: boolean;
   description: string;
   readme: string;
@@ -37,6 +37,7 @@ interface IPackage {
   downloadUrl: string;
   repositoryUrl: string;
   repositoryType: string;
+  releaseNotes: string;
   totalDownloads: number;
   packageType: PackageType;
   downloads: number;
@@ -60,10 +61,8 @@ class DisplayPackage extends React.Component<IDisplayPackageProps, IDisplayPacka
     package: undefined,
   };
 
-  private readonly defaultIconUrl: string = 'https://www.nuget.org/Content/gallery/img/default-package-icon-256x256.png';
-
   private id: string;
-  private version?: string;
+  private version: SemVer | null;
 
   private registrationController: AbortController;
   private readmeController: AbortController;
@@ -75,7 +74,7 @@ class DisplayPackage extends React.Component<IDisplayPackageProps, IDisplayPacka
     this.readmeController = new AbortController();
 
     this.id = props.match.params.id.toLowerCase();
-    this.version = props.match.params.version;
+    this.version = coerce(props.match.params.version);
     this.state = DisplayPackage.initialState;
   }
 
@@ -95,7 +94,7 @@ class DisplayPackage extends React.Component<IDisplayPackageProps, IDisplayPacka
       this.readmeController = new AbortController();
 
       this.id = this.props.match.params.id.toLowerCase();
-      this.version = this.props.match.params.version;
+      this.version = coerce(this.props.match.params.version);
       this.setState(DisplayPackage.initialState);
       this.componentDidMount();
     }
@@ -127,9 +126,13 @@ class DisplayPackage extends React.Component<IDisplayPackageProps, IDisplayPacka
         if (!entry.catalogEntry.listed) continue;
 
         const normalizedVersion = this.normalizeVersion(entry.catalogEntry.version);
-        const isCurrent = !!this.version
-          ? normalizedVersion === this.version
-          : normalizedVersion === latestVersion;
+        const coercedVersion = coerce(entry.catalogEntry.version);
+
+        if (coercedVersion === null) continue;
+
+        const isCurrent = latestVersion !== null && coercedVersion !== null
+          ? eq(coercedVersion, !!this.version ? this.version : latestVersion)
+          : false;
 
         versions.push({
           date: new Date(entry.catalogEntry.published),
@@ -168,7 +171,6 @@ class DisplayPackage extends React.Component<IDisplayPackageProps, IDisplayPacka
             downloadUrl: currentItem.packageContent,
             packageType,
             lastUpdate,
-            latestVersion,
             normalizedVersion: this.normalizeVersion(currentItem.catalogEntry.version),
             readme,
             totalDownloads: results.totalDownloads,
@@ -210,7 +212,7 @@ class DisplayPackage extends React.Component<IDisplayPackageProps, IDisplayPacka
         <div className="row display-package">
           <aside className="col-sm-1 package-icon">
             <img
-              src={this.state.package.iconUrl}
+              src={this.state.package.iconUrl || DefaultPackageIcon}
               className="img-responsive"
               onError={this.loadDefaultIcon}
               alt="The package icon" />
@@ -247,6 +249,12 @@ class DisplayPackage extends React.Component<IDisplayPackageProps, IDisplayPacka
             <ExpandableSection title="Dependents" expanded={false}>
               <Dependents packageId={this.state.package.id} />
             </ExpandableSection>
+
+            {this.state.package.releaseNotes &&
+              <ExpandableSection title="Release Notes" expanded={false}>
+                <div className="package-release-notes" >{this.state.package.releaseNotes}</div>
+              </ExpandableSection>
+            }
 
             <ExpandableSection title="Dependencies" expanded={false}>
               <Dependencies dependencyGroups={this.state.package.dependencyGroups} />
@@ -296,7 +304,7 @@ class DisplayPackage extends React.Component<IDisplayPackageProps, IDisplayPacka
             </div>
 
             <div>
-              <h1>Authors</h1>
+              <h2>Authors</h2>
 
               <p>{(!this.state.package.authors) ? 'Unknown' : this.state.package.authors}</p>
             </div>
@@ -307,7 +315,7 @@ class DisplayPackage extends React.Component<IDisplayPackageProps, IDisplayPacka
   }
 
   private loadDefaultIcon = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    e.currentTarget.src = this.defaultIconUrl;
+    e.currentTarget.src = DefaultPackageIcon;
   }
 
   private normalizeVersion(version: string): string {
@@ -317,13 +325,16 @@ class DisplayPackage extends React.Component<IDisplayPackageProps, IDisplayPacka
       : version.substring(0, buildMetadataStart);
   }
 
-  private latestVersion(index: Registration.IRegistrationIndex): string | null {
-    let latestVersion: string | null = null;
+  private latestVersion(index: Registration.IRegistrationIndex): SemVer | null {
+    let latestVersion: SemVer | null = null;
     for (const entry of index.items[0].items) {
       if (!entry.catalogEntry.listed) continue;
 
-      if (latestVersion === null || gt(entry.catalogEntry.version, latestVersion)) {
-        latestVersion = entry.catalogEntry.version;
+      let entryVersion = coerce(entry.catalogEntry.version);
+      if (!!entryVersion) {
+        if (latestVersion === null || gt(entryVersion, latestVersion)) {
+          latestVersion = entryVersion;
+        }
       }
     }
 

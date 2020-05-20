@@ -36,8 +36,12 @@ namespace BaGet.Core
             string id,
             CancellationToken cancellationToken)
         {
-            var upstreamVersions = await _upstreamClient.ListPackageVersionsAsync(id, includeUnlisted: true, cancellationToken);
-            if (!upstreamVersions.Any())
+            var upstreamVersions = await RunOrNull(
+                id,
+                "versions",
+                () => _upstreamClient.ListPackageVersionsAsync(id, includeUnlisted: true, cancellationToken));
+
+            if (upstreamVersions == null || !upstreamVersions.Any())
             {
                 return null;
             }
@@ -51,8 +55,12 @@ namespace BaGet.Core
 
         public async Task<IReadOnlyList<Package>> FindPackagesOrNullAsync(string id, CancellationToken cancellationToken)
         {
-            var items = await _upstreamClient.GetPackageMetadataAsync(id, cancellationToken);
-            if (!items.Any())
+            var items = await RunOrNull(
+                id,
+                "metadata",
+                () => _upstreamClient.GetPackageMetadataAsync(id, cancellationToken));
+
+            if (items == null || !items.Any())
             {
                 return null;
             }
@@ -168,6 +176,20 @@ namespace BaGet.Core
             });
         }
 
+        private async Task<T> RunOrNull<T>(string id, string data, Func<Task<T>> x)
+            where T : class
+        {
+            try
+            {
+                return await x();
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "Unable to mirror package {Package}'s upstream {Data}", id, data);
+                return null;
+            }
+        }
+
         private async Task IndexFromSourceAsync(string id, NuGetVersion version, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -181,7 +203,7 @@ namespace BaGet.Core
 
             try
             {
-                using (var stream = await _upstreamClient.GetPackageStreamAsync(id, version, cancellationToken))
+                using (var stream = await _upstreamClient.DownloadPackageAsync(id, version, cancellationToken))
                 {
                     packageStream = await stream.AsTemporaryFileStreamAsync();
                 }

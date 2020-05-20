@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using BaGet.Azure.Extensions;
 using BaGet.Core;
 using Microsoft.Azure.Cosmos.Table;
 using Microsoft.Extensions.Logging;
@@ -230,6 +229,7 @@ namespace BaGet.Azure
                 Description = entity.Description,
                 Downloads = entity.Downloads,
                 HasReadme = entity.HasReadme,
+                HasEmbeddedIcon = entity.HasEmbeddedIcon,
                 IsPrerelease = entity.IsPrerelease,
                 Language = entity.Language,
                 Listed = entity.Listed,
@@ -239,6 +239,7 @@ namespace BaGet.Azure
                 SemVerLevel = (SemVerLevel)entity.SemVerLevel,
                 Summary = entity.Summary,
                 Title = entity.Title,
+                ReleaseNotes = entity.ReleaseNotes,
                 IconUrl = ParseUri(entity.IconUrl),
                 LicenseUrl = ParseUri(entity.LicenseUrl),
                 ProjectUrl = ParseUri(entity.ProjectUrl),

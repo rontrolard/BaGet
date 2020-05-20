@@ -73,10 +73,16 @@ namespace BaGet.Protocol.Tests
         }
 
         [Fact]
+        public async Task GetRegistrationPageDeprecated()
+        {
+            // TODO
+            await Task.Yield();
+        }
+
+        [Fact]
         public async Task GetsRegistrationLeaf()
         {
-            var version = NuGetVersion.Parse("1.0.0");
-            var result = await _target.GetRegistrationLeafOrNullAsync("Test.Package", version);
+            var result = await _target.GetRegistrationLeafAsync(TestData.RegistrationLeafListedUrl);
 
             Assert.NotNull(result);
             Assert.True(result.Listed);
@@ -96,8 +102,7 @@ namespace BaGet.Protocol.Tests
         [Fact]
         public async Task GetsRegistrationLeafUnlisted()
         {
-            var version = NuGetVersion.Parse("2.0.0+build");
-            var result = await _target.GetRegistrationLeafOrNullAsync("Paged.Package", version);
+            var result = await _target.GetRegistrationLeafAsync(TestData.RegistrationLeafUnlistedUrl);
 
             Assert.NotNull(result);
             Assert.False(result.Listed);
