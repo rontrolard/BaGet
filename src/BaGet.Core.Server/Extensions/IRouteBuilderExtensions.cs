@@ -14,6 +14,14 @@ namespace BaGet.Extensions
                 defaults: new { controller = "ServiceIndex", action = "GetAsync" });
         }
 
+        public static IRouteBuilder MapImportIndexRoute(this IRouteBuilder routes)
+        {
+            return routes.MapRoute(
+                name: Routes.ImportRouteName,
+                template: "api/import",
+                defaults: new { controller = "Import", action = "GetAsync" });
+
+        }
         public static IRouteBuilder MapPackagePublishRoutes(this IRouteBuilder routes)
         {
             routes.MapRoute(
@@ -49,7 +57,7 @@ namespace BaGet.Extensions
                 name: Routes.SymbolDownloadRouteName,
                 template: "api/download/symbols/{file}/{key}/{file2}",
                 defaults: new { controller = "Symbol", action = "Get" });
-            
+
             routes.MapRoute(
                 name: Routes.SymbolDownloadRouteName,
                 template: "api/download/symbols/{prefix}/{file}/{key}/{file2}",

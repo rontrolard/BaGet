@@ -3,6 +3,7 @@ namespace BaGet
     public class Routes
     {
         public const string IndexRouteName = "index";
+        public const string ImportRouteName = "import";
         public const string UploadPackageRouteName = "upload-package";
         public const string UploadSymbolRouteName = "upload-symbol";
         public const string DeleteRouteName = "delete";

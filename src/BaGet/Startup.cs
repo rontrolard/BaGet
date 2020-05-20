@@ -65,6 +65,7 @@ namespace BaGet
             {
                 routes
                     .MapServiceIndexRoutes()
+                    .MapImportIndexRoute()
                     .MapPackagePublishRoutes()
                     .MapSymbolRoutes()
                     .MapSearchRoutes()
